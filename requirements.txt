@@ -1,4 +1,7 @@
-streamlit_webrtc
+streamlit
 openai
 python-dotenv
 gTTS
+streamlit_webrtc
+transformers
+torch

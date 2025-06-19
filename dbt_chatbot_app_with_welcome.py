@@ -7,12 +7,29 @@ import time
 from collections import defaultdict
 from openai import OpenAI
 from dotenv import load_dotenv
+from gtts import gTTS
+import base64
+import tempfile
+from streamlit_audio_recorder import audio_recorder
 
-# Load OpenAI API key
+# Load environment variables
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Initialize session state
+st.set_page_config(page_title="DBT Voice Chatbot", layout="centered")
+st.title("🧠 Your mental health companion")
+st.markdown("Talk to the bot using your voice or type below. The bot reflects on your emotions and themes over time.")
+
+# Check if user has accepted voice chat
+if 'voice_chat_opt_in' not in st.session_state:
+    st.session_state.voice_chat_opt_in = False
+
+# Audio input using mic button only if user agreed
+audio_bytes = None
+if st.session_state.voice_chat_opt_in:
+    audio_bytes = audio_recorder(pause_threshold=1.5, sample_rate=44100)
+
+# Session state setup
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'first_interaction' not in st.session_state:
@@ -28,11 +45,6 @@ if 'chat_started' not in st.session_state:
     })
     st.session_state.chat_started = True
 
-st.set_page_config(page_title="DBT Chatbot", layout="centered")
-st.title("🧠 Your mental health companion")
-st.markdown("Start chatting below. This bot reflects on emotional patterns and remembers key themes over time.")
-
-# Display chat history BEFORE input
 chat_placeholder = st.container()
 with chat_placeholder:
     for chat in st.session_state.chat_history:
@@ -42,8 +54,18 @@ with chat_placeholder:
         with st.chat_message("assistant"):
             st.markdown(chat['bot'])
 
-# User input box
-user_input = st.chat_input("You:")
+typed_input = st.chat_input("You:")
+
+def transcribe_audio(audio_bytes):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+    with open(tmp_path, "rb") as f:
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=f
+        )
+    return transcript.text
 
 def extract_themes_from_response(response):
     themes = ["shame", "anger", "impulsivity", "loneliness", "worthlessness", "avoidance", "abandonment", "perfectionism", "fear", "guilt", "rejection"]
@@ -54,25 +76,51 @@ def extract_themes_from_response(response):
     return extracted
 
 def get_bot_response(user_message, chat_log):
-    messages = [{"role": "system", "content": "You are a DBT-informed therapeutic chatbot. Your role is to gently explore the user's emotions, behaviors, and patterns over time. Do not offer treatment or diagnosis. Instead, embed reflective questions where relevant and take note of any recurring themes."}]
-
+    messages = [{"role": "system", "content": "You are a DBT-informed therapeutic chatbot. Gently explore the user's emotions, behaviors, and themes. Do not diagnose. Wait two weeks before offering DBT skills."}]
     for entry in chat_log:
         if entry['user']:
             messages.append({"role": "user", "content": entry['user']})
         messages.append({"role": "assistant", "content": entry['bot']})
-
     messages.append({"role": "user", "content": user_message})
-
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=messages
     )
-
     return response.choices[0].message.content
+
+def play_tts(text):
+    tts = gTTS(text)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
+        tts.save(tmpfile.name)
+        return tmpfile.name
+
+# Get input
+if audio_bytes:
+    user_input = transcribe_audio(audio_bytes)
+else:
+    user_input = typed_input
+
+# Detect if voice chat suggestion should happen (after 3+ messages)
+offer_voice_switch = False
+if not st.session_state.voice_chat_opt_in and len(st.session_state.chat_history) >= 4:
+    offer_voice_switch = True
 
 if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
+
+    if offer_voice_switch:
+        suggestion = "Would you prefer to continue this conversation using your voice? If that feels more comfortable for you, I can switch to voice chat now."
+        st.session_state.chat_history.append({
+            "user": user_input,
+            "bot": suggestion
+        })
+        with st.chat_message("assistant"):
+            st.markdown(suggestion)
+        use_voice = st.radio("Would you like to use voice chat from now on?", ["No", "Yes"], index=0)
+        if use_voice == "Yes":
+            st.session_state.voice_chat_opt_in = True
+        st.stop()
 
     with st.chat_message("assistant"):
         typing = st.empty()
@@ -82,21 +130,20 @@ if user_input:
         typing.empty()
         st.markdown(bot_response)
 
-    # Save chat history
+        audio_file_path = play_tts(bot_response)
+        audio_data = open(audio_file_path, 'rb').read()
+        st.audio(audio_data, format='audio/mp3')
+
     st.session_state.chat_history.append({
         "user": user_input,
         "bot": bot_response
     })
-
-    # Save reflections
     st.session_state.summary_notes.append(f"[{datetime.datetime.now().strftime('%Y-%m-%d')}] User: {user_input} | Bot: {bot_response}")
-
-    # Update memory with emotional themes
     themes_found = extract_themes_from_response(user_input + " " + bot_response)
     for theme in themes_found:
         st.session_state.theme_memory[theme] += 1
 
-# Summary if 2 weeks have passed
+# Show summary if 2 weeks passed
 days_elapsed = (datetime.datetime.now() - st.session_state.first_interaction).days
 if days_elapsed >= 14:
     st.markdown("### 🧾 Summary of Reflections So Far")

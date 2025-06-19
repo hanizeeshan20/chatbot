@@ -1,3 +1,4 @@
+
 import streamlit as st
 import datetime
 import os
@@ -26,10 +27,17 @@ if 'chat_started' not in st.session_state:
     })
     st.session_state.chat_started = True
 
-st.title("🧠 DBT Chatbot – Reflective Companion with Memory")
+st.title("🧠 Your mental health companion")
 
 st.markdown("Start chatting below. This bot reflects on emotional patterns and remembers key themes over time.")
 
+# Display chat history BEFORE input
+for chat in st.session_state.chat_history:
+    if chat['user']:
+        st.markdown(f"**You:** {chat['user']}")
+    st.markdown(f"**Bot:** {chat['bot']}")
+
+# User input box
 user_input = st.text_input("You:", key="user_input")
 
 def extract_themes_from_response(response):
@@ -74,12 +82,6 @@ if user_input:
     for theme in themes_found:
         st.session_state.theme_memory[theme] += 1
 
-# Display chat history
-for chat in st.session_state.chat_history:
-    if chat['user']:
-        st.markdown(f"**You:** {chat['user']}")
-    st.markdown(f"**Bot:** {chat['bot']}")
-
 # Summary if 2 weeks have passed
 days_elapsed = (datetime.datetime.now() - st.session_state.first_interaction).days
 if days_elapsed >= 14:
@@ -92,4 +94,4 @@ if days_elapsed >= 14:
         st.markdown(f"- **{theme.title()}**: mentioned {count} time(s)")
     st.markdown("You’ve now spent two weeks building self-awareness. Would you like to explore a DBT skill next time?")
 else:
-    st.info(f"🕒 {14 - days_elapsed} day(s) remaining until skill suggestions become available.")
+    st.info(f"Keep engaging for {14 - days_elapsed} day(s) more to receive personalised suggestions.")

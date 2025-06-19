@@ -12,7 +12,6 @@ import base64
 import tempfile
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 import av
-import whisper
 
 # Load OpenAI key
 load_dotenv()

@@ -20,16 +20,13 @@ st.set_page_config(page_title="DBT Voice Chatbot", layout="centered")
 st.title("🧠 Your mental health companion")
 st.markdown("Talk to the bot using your voice or type below. The bot reflects on your emotions and themes over time.")
 
-# Check if user has accepted voice chat
 if 'voice_chat_opt_in' not in st.session_state:
     st.session_state.voice_chat_opt_in = False
 
-# Audio input using mic button only if user agreed
 audio_bytes = None
 if st.session_state.voice_chat_opt_in:
     audio_bytes = audio_recorder(pause_threshold=1.5, sample_rate=44100)
 
-# Session state setup
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'first_interaction' not in st.session_state:
@@ -94,13 +91,11 @@ def play_tts(text):
         tts.save(tmpfile.name)
         return tmpfile.name
 
-# Get input
 if audio_bytes:
     user_input = transcribe_audio(audio_bytes)
 else:
     user_input = typed_input
 
-# Detect if voice chat suggestion should happen (after 3+ messages)
 offer_voice_switch = False
 if not st.session_state.voice_chat_opt_in and len(st.session_state.chat_history) >= 4:
     offer_voice_switch = True
@@ -143,7 +138,6 @@ if user_input:
     for theme in themes_found:
         st.session_state.theme_memory[theme] += 1
 
-# Show summary if 2 weeks passed
 days_elapsed = (datetime.datetime.now() - st.session_state.first_interaction).days
 if days_elapsed >= 14:
     st.markdown("### 🧾 Summary of Reflections So Far")

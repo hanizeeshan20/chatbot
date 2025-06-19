@@ -5,3 +5,4 @@ gTTS
 streamlit_webrtc
 transformers
 torch
+matplotlib

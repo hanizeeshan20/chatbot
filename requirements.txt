@@ -1,4 +1,4 @@
-streamlit
+streamlit_webrtc
 openai
 python-dotenv
 gTTS

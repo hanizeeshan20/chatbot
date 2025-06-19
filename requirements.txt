@@ -3,3 +3,4 @@ openai
 python-dotenv
 gTTS
 streamlit-audio-recorder
+openai-whisper

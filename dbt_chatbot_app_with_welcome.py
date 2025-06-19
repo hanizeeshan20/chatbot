@@ -1,15 +1,14 @@
-
 import streamlit as st
-import openai
 import datetime
 import os
 import re
-from dotenv import load_dotenv
 from collections import defaultdict
+from openai import OpenAI
+from dotenv import load_dotenv
 
 # Load OpenAI API key
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Initialize session state
 if 'chat_history' not in st.session_state:
@@ -51,12 +50,12 @@ def get_bot_response(user_message, chat_log):
 
     messages.append({"role": "user", "content": user_message})
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4o",
         messages=messages
     )
 
-    return response['choices'][0]['message']['content']
+    return response.choices[0].message.content
 
 if user_input:
     bot_response = get_bot_response(user_input, st.session_state.chat_history)

@@ -5,18 +5,20 @@ import re
 from collections import defaultdict
 from openai import OpenAI
 from dotenv import load_dotenv
-from io import BytesIO
 from gtts import gTTS
+import base64
+import tempfile
+import time
 
-from transformers import pipeline
-
-# Load Hugging Face emotion classification pipeline
-emotion_classifier = pipeline("text-classification", model="j-hartmann/emotion-english-distilroberta-base", top_k=None)
-
+# Optional: For future use in emotion analysis
 def analyze_emotions(text):
-    results = emotion_classifier(text)[0]
-    return {r['label'].lower(): r['score'] for r in results}
-
+    # Placeholder logic — refine later with ML or API
+    emotions = []
+    if any(word in text.lower() for word in ["sad", "not good", "hurt", "bad"]):
+        emotions.append("sadness")
+    if any(word in text.lower() for word in ["angry", "frustrated", "irritated"]):
+        emotions.append("anger")
+    return emotions
 
 # Load OpenAI API key
 load_dotenv()
@@ -38,17 +40,27 @@ if 'chat_started' not in st.session_state:
     })
     st.session_state.chat_started = True
 if 'voice_enabled' not in st.session_state:
-    st.session_state.voice_enabled = None  # None means not yet asked
+    st.session_state.voice_enabled = None
 
-st.title("\U0001F9E0 Your mental health companion")
+st.title("🧠 Your mental health companion")
 
 st.markdown("You can type or speak to the bot. This DBT-informed companion reflects on your emotions over time.")
 
-# Display chat history
+# Display chat history BEFORE input
 for chat in st.session_state.chat_history:
     if chat['user']:
         st.markdown(f"**You:** {chat['user']}")
+    with st.spinner("🗨️ *Typing...*"):
+        time.sleep(0.5)
     st.markdown(f"**Bot:** {chat['bot']}")
+    if st.session_state.voice_enabled and chat['bot']:
+        tts = gTTS(text=chat['bot'])
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+            tts.save(tmp.name)
+            with open(tmp.name, "rb") as f:
+                audio_bytes = f.read()
+            b64 = base64.b64encode(audio_bytes).decode()
+            st.audio(f"data:audio/mp3;base64,{b64}", format='audio/mp3')
 
 # User input box
 user_input = st.text_input("You:", key="user_input")
@@ -78,61 +90,45 @@ def get_bot_response(user_message, chat_log):
 
     return response.choices[0].message.content
 
-# Ask about voice chat preference
-if st.session_state.voice_enabled is None and user_input:
-    st.session_state.voice_enabled = "pending"
-    st.session_state.chat_history.append({
-        "user": user_input,
-        "bot": "Would you like me to respond with voice as well?"
-    })
-    st.stop()
-
-if st.session_state.voice_enabled == "pending" and user_input:
-    if "yes" in user_input.lower():
-        st.session_state.voice_enabled = True
-        bot_response = "Great, I’ll respond with voice from now on."
-    elif "no" in user_input.lower():
+if user_input:
+    if st.session_state.voice_enabled is None:
+        bot_response = "Would you like me to respond with voice as well?"
         st.session_state.voice_enabled = False
-        bot_response = "No worries. I’ll keep chatting with you here."
+    elif st.session_state.voice_enabled is False and user_input.lower() in ["yes", "sure", "ok"]:
+        st.session_state.voice_enabled = True
+        bot_response = "Okay, I'll respond with voice from now on."
     else:
-        bot_response = "Just let me know with a 'yes' or 'no' if you’d prefer voice responses."
+        bot_response = get_bot_response(user_input, st.session_state.chat_history)
+
+        # Save reflections
+        st.session_state.summary_notes.append(f"[{datetime.datetime.now().strftime('%Y-%m-%d')}] User: {user_input} | Bot: {bot_response}")
+
+        # Update memory with emotional themes
+        themes_found = extract_themes_from_response(user_input + " " + bot_response)
+        for theme in themes_found:
+            st.session_state.theme_memory[theme] += 1
+
+        # Analyze tone
+        emotions = analyze_emotions(user_input)
+        if emotions:
+            st.session_state.summary_notes.append(f"   ↳ Emotion detected: {', '.join(emotions)}")
+
+    # Save chat history
     st.session_state.chat_history.append({
         "user": user_input,
         "bot": bot_response
     })
-    st.stop()
-
-if user_input and st.session_state.voice_enabled != "pending":
-    bot_response = get_bot_response(user_input, st.session_state.chat_history)
-
-    st.session_state.chat_history.append({
-        "user": user_input,
-        "bot": bot_response
-    })
-
-    st.session_state.summary_notes.append(f"[{datetime.datetime.now().strftime('%Y-%m-%d')}] User: {user_input} | Bot: {bot_response}")
-
-    themes_found = extract_themes_from_response(user_input + " " + bot_response)
-    for theme in themes_found:
-        st.session_state.theme_memory[theme] += 1
-
-    # Voice response playback if enabled
-    if st.session_state.voice_enabled:
-        tts = gTTS(text=bot_response)
-        audio = BytesIO()
-        tts.write_to_fp(audio)
-        st.audio(audio.getvalue(), format='audio/mp3')
 
 # Summary if 2 weeks have passed
-elapsed = (datetime.datetime.now() - st.session_state.first_interaction).days
-if elapsed >= 14:
-    st.markdown("### \U0001F9FE Summary of Reflections So Far")
+days_elapsed = (datetime.datetime.now() - st.session_state.first_interaction).days
+if days_elapsed >= 14:
+    st.markdown("### 🧾 Summary of Reflections So Far")
     for note in st.session_state.summary_notes[-10:]:
         st.markdown(f"- {note}")
-    st.markdown("### \U0001F9E0 Recurring Emotional Themes")
+    st.markdown("### 🧠 Recurring Emotional Themes")
     sorted_themes = sorted(st.session_state.theme_memory.items(), key=lambda x: -x[1])
     for theme, count in sorted_themes:
         st.markdown(f"- **{theme.title()}**: mentioned {count} time(s)")
     st.markdown("You’ve now spent two weeks building self-awareness. Would you like to explore a DBT skill next time?")
 else:
-    st.info(f"Keep engaging for {14 - elapsed} day(s) more to receive personalised suggestions.")
+    st.info(f"Keep engaging for {14 - days_elapsed} day(s) more to receive personalised suggestions.")

@@ -33,8 +33,8 @@ st.title("🧠 Your mental health companion")
 st.markdown("Start chatting below. This bot reflects on emotional patterns and remembers key themes over time.")
 
 # Display chat history BEFORE input
-chat_placeholder = st.empty()
-with chat_placeholder.container():
+chat_placeholder = st.container()
+with chat_placeholder:
     for chat in st.session_state.chat_history:
         if chat['user']:
             with st.chat_message("user"):
@@ -77,7 +77,7 @@ if user_input:
     with st.chat_message("assistant"):
         typing = st.empty()
         typing.markdown("💬 _Typing..._")
-        time.sleep(1.5)  # simulate typing delay
+        time.sleep(1.5)
         bot_response = get_bot_response(user_input, st.session_state.chat_history)
         typing.empty()
         st.markdown(bot_response)

@@ -28,7 +28,7 @@ if 'chat_started' not in st.session_state:
 
 st.title("🧠 DBT Chatbot – Reflective Companion with Memory")
 
-st.markdown("Start chatting below. This bot reflects on emotional patterns and remembers key themes over time. It will not offer DBT skills until enough insight is developed.")
+st.markdown("Start chatting below. This bot reflects on emotional patterns and remembers key themes over time.")
 
 user_input = st.text_input("You:", key="user_input")
 

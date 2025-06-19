@@ -3,6 +3,7 @@ import streamlit as st
 import datetime
 import os
 import re
+import time
 from collections import defaultdict
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -27,18 +28,22 @@ if 'chat_started' not in st.session_state:
     })
     st.session_state.chat_started = True
 
+st.set_page_config(page_title="DBT Chatbot", layout="centered")
 st.title("🧠 Your mental health companion")
-
 st.markdown("Start chatting below. This bot reflects on emotional patterns and remembers key themes over time.")
 
 # Display chat history BEFORE input
-for chat in st.session_state.chat_history:
-    if chat['user']:
-        st.markdown(f"**You:** {chat['user']}")
-    st.markdown(f"**Bot:** {chat['bot']}")
+chat_placeholder = st.empty()
+with chat_placeholder.container():
+    for chat in st.session_state.chat_history:
+        if chat['user']:
+            with st.chat_message("user"):
+                st.markdown(chat['user'])
+        with st.chat_message("assistant"):
+            st.markdown(chat['bot'])
 
 # User input box
-user_input = st.text_input("You:", key="user_input")
+user_input = st.chat_input("You:")
 
 def extract_themes_from_response(response):
     themes = ["shame", "anger", "impulsivity", "loneliness", "worthlessness", "avoidance", "abandonment", "perfectionism", "fear", "guilt", "rejection"]
@@ -66,7 +71,16 @@ def get_bot_response(user_message, chat_log):
     return response.choices[0].message.content
 
 if user_input:
-    bot_response = get_bot_response(user_input, st.session_state.chat_history)
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    with st.chat_message("assistant"):
+        typing = st.empty()
+        typing.markdown("💬 _Typing..._")
+        time.sleep(1.5)  # simulate typing delay
+        bot_response = get_bot_response(user_input, st.session_state.chat_history)
+        typing.empty()
+        st.markdown(bot_response)
 
     # Save chat history
     st.session_state.chat_history.append({

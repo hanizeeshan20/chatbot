@@ -10,6 +10,14 @@ from gtts import gTTS
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 import tempfile
 from transformers import pipeline
+from transformers import pipeline
+
+# Load Hugging Face emotion classification pipeline
+emotion_classifier = pipeline("text-classification", model="j-hartmann/emotion-english-distilroberta-base", top_k=None)
+
+def analyze_emotions(text):
+    results = emotion_classifier(text)[0]
+    return {r['label'].lower(): r['score'] for r in results}
 
 # Load OpenAI API key
 load_dotenv()

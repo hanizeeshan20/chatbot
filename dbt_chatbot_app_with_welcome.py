@@ -12,7 +12,6 @@ import time
 
 # Optional: For future use in emotion analysis
 def analyze_emotions(text):
-    # Placeholder logic — refine later with ML or API
     emotions = []
     if any(word in text.lower() for word in ["sad", "not good", "hurt", "bad"]):
         emotions.append("sadness")
@@ -46,7 +45,10 @@ st.title("🧠 Your mental health companion")
 
 st.markdown("You can type or speak to the bot. This DBT-informed companion reflects on your emotions over time.")
 
-# Display chat history BEFORE input
+# User input box (placed first to minimize delay)
+user_input = st.text_input("You:", key="user_input")
+
+# Display chat history AFTER input
 for chat in st.session_state.chat_history:
     if chat['user']:
         st.markdown(f"**You:** {chat['user']}")
@@ -62,14 +64,11 @@ for chat in st.session_state.chat_history:
             b64 = base64.b64encode(audio_bytes).decode()
             st.audio(f"data:audio/mp3;base64,{b64}", format='audio/mp3')
 
-# User input box
-user_input = st.text_input("You:", key="user_input")
-
 def extract_themes_from_response(response):
     themes = ["shame", "anger", "impulsivity", "loneliness", "worthlessness", "avoidance", "abandonment", "perfectionism", "fear", "guilt", "rejection"]
     extracted = []
     for theme in themes:
-        if re.search(rf"\\b{theme}\\b", response, re.IGNORECASE):
+        if re.search(rf"\b{theme}\b", response, re.IGNORECASE):
             extracted.append(theme)
     return extracted
 
@@ -92,7 +91,9 @@ def get_bot_response(user_message, chat_log):
 
 if user_input:
     if st.session_state.voice_enabled is None:
-        bot_response = "Would you like me to respond with voice as well?"
+        emotions = analyze_emotions(user_input)
+        emotion_tag = f" I’m sensing a bit of {', '.join(emotions)}." if emotions else ""
+        bot_response = f"Thanks for sharing that.{emotion_tag} Would you like me to respond with voice as well?"
         st.session_state.voice_enabled = False
     elif st.session_state.voice_enabled is False and user_input.lower() in ["yes", "sure", "ok"]:
         st.session_state.voice_enabled = True
@@ -100,20 +101,16 @@ if user_input:
     else:
         bot_response = get_bot_response(user_input, st.session_state.chat_history)
 
-        # Save reflections
         st.session_state.summary_notes.append(f"[{datetime.datetime.now().strftime('%Y-%m-%d')}] User: {user_input} | Bot: {bot_response}")
 
-        # Update memory with emotional themes
         themes_found = extract_themes_from_response(user_input + " " + bot_response)
         for theme in themes_found:
             st.session_state.theme_memory[theme] += 1
 
-        # Analyze tone
         emotions = analyze_emotions(user_input)
         if emotions:
             st.session_state.summary_notes.append(f"   ↳ Emotion detected: {', '.join(emotions)}")
 
-    # Save chat history
     st.session_state.chat_history.append({
         "user": user_input,
         "bot": bot_response

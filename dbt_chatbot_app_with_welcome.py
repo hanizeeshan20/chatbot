@@ -45,10 +45,7 @@ st.title("🧠 Your mental health companion")
 
 st.markdown("You can type or speak to the bot. This DBT-informed companion reflects on your emotions over time.")
 
-# User input box (placed first to minimize delay)
-user_input = st.text_input("You:", key="user_input")
-
-# Display chat history AFTER input
+# Display chat history BEFORE input
 for chat in st.session_state.chat_history:
     if chat['user']:
         st.markdown(f"**You:** {chat['user']}")
@@ -63,6 +60,9 @@ for chat in st.session_state.chat_history:
                 audio_bytes = f.read()
             b64 = base64.b64encode(audio_bytes).decode()
             st.audio(f"data:audio/mp3;base64,{b64}", format='audio/mp3')
+
+# User input box
+user_input = st.text_input("You:", key="user_input")
 
 def extract_themes_from_response(response):
     themes = ["shame", "anger", "impulsivity", "loneliness", "worthlessness", "avoidance", "abandonment", "perfectionism", "fear", "guilt", "rejection"]
@@ -93,7 +93,7 @@ if user_input:
     if st.session_state.voice_enabled is None:
         emotions = analyze_emotions(user_input)
         emotion_tag = f" I’m sensing a bit of {', '.join(emotions)}." if emotions else ""
-        bot_response = f"Thanks for sharing that.{emotion_tag} Would you like me to respond with voice as well?"
+        bot_response = f"Thanks for sharing that.{emotion_tag} Would you prefer I speak aloud or keep things written only?"
         st.session_state.voice_enabled = False
     elif st.session_state.voice_enabled is False and user_input.lower() in ["yes", "sure", "ok"]:
         st.session_state.voice_enabled = True
